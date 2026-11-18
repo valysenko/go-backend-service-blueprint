@@ -1,0 +1,6 @@
+temp/
+deployments/.env
+bin/
+__debug_bin*
+.idea/
+.claude/settings.local.json

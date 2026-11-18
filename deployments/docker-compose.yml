@@ -1,0 +1,37 @@
+services:
+  app:
+    restart: always
+    tty: true
+    container_name: blueprint-app
+    hostname: blueprint-app
+    build:
+      target: dev
+      context: ../
+      dockerfile: deployments/app/Dockerfile
+    working_dir: /src
+    command: ["air", "-c", ".air.http.toml"]
+    volumes:
+      - ../:/src
+      - blueprint-go-mod:/go/pkg/mod
+      - blueprint-go-build:/root/.cache/go-build
+    ports:
+      - "8096:8096"
+      # delve
+      - "40000:40000"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    env_file:
+      - path: .env
+        required: false
+    networks:
+      - blueprint-network
+
+volumes:
+  blueprint-go-mod:
+  blueprint-go-build:
+
+networks:
+  blueprint-network:
+    name: blueprint-network
