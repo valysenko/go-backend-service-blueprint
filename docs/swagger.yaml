@@ -1,0 +1,56 @@
+basePath: /
+definitions:
+  healthcheck.HealthcheckResult:
+    properties:
+      healthcheck_results:
+        items:
+          $ref: '#/definitions/healthcheck.ServiceResult'
+        type: array
+    type: object
+  healthcheck.ServiceResult:
+    properties:
+      service:
+        type: string
+      status:
+        type: string
+    type: object
+  hello.Response:
+    properties:
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Reference HTTP API of the service blueprint.
+  title: Go Backend Service Blueprint API
+  version: "1.0"
+paths:
+  /healthcheck/:
+    get:
+      description: Reports the liveness of the app and its backing services.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/healthcheck.HealthcheckResult'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/healthcheck.HealthcheckResult'
+      tags:
+      - healthcheck
+  /hello:
+    get:
+      description: Minimal endpoint demonstrating the presentation layer.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/hello.Response'
+      tags:
+      - hello
+swagger: "2.0"

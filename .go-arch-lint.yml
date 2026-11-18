@@ -1,0 +1,34 @@
+version: 3
+
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "_test\\.go$"
+
+commonComponents:
+  - shared
+
+components:
+  app:            { in: "internal/app/**" }
+  infrastructure: { in: "internal/infrastructure/**" }
+  presentation:   { in: "internal/presentation/**" }
+  shared:         { in: "pkg/**" }
+  config:         { in: "config/**" }
+  docs:           { in: "docs/**" }
+  entrypoint:     { in: "cmd/**" }
+
+deps:
+  app:
+    mayDependOn: [ app ]
+  config:
+    mayDependOn: [ infrastructure ]
+  infrastructure:
+    mayDependOn: [ app, infrastructure ]
+  presentation:
+    mayDependOn: [ app, presentation ]
+  shared:
+    mayDependOn: [ shared ]
+  entrypoint:
+    mayDependOn: [ app, infrastructure, presentation, config, docs, entrypoint ]

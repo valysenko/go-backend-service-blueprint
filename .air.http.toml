@@ -2,8 +2,7 @@ root = "."
 tmp_dir = "temp/air-http"
 
 [build]
-  # Entry stays on cmd/hello until cmd/http lands in the next commit.
-  cmd = "go build -o ./temp/air-http/app ./cmd/hello"
+  cmd = "go build -o ./temp/air-http/app ./cmd/http"
   entrypoint = ["./temp/air-http/app"]
   include_ext = ["go", "sql"]
   exclude_dir = ["temp", "bin", "docs", "deployments", "mocks", ".git", ".github", ".idea", ".claude"]

@@ -1,0 +1,26 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: blueprint-prometheus
+    hostname: blueprint-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - blueprint-network
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.0
+    container_name: blueprint-pushgateway
+    hostname: blueprint-pushgateway
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    networks:
+      - blueprint-network
+
+networks:
+  blueprint-network:
+    external: true
