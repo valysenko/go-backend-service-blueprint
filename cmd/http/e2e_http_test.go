@@ -25,7 +25,7 @@ func newTestApp() *HTTPApp {
 			WriteTimeout: 5,
 			BodyLimit:    1024,
 		},
-	})
+	}, Dependencies{})
 }
 
 func doRequest(t *testing.T, app *HTTPApp, path string) (*http.Response, []byte) {

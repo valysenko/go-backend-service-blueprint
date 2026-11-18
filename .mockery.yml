@@ -1,0 +1,33 @@
+# Regenerate from the repo root:
+#   GOTOOLCHAIN=go1.26.2 go run github.com/vektra/mockery/v3@v3.7.2
+#
+# The explicit GOTOOLCHAIN is required: mockery's go.mod declares an older `go`
+# directive, so `go run` would build it with that toolchain and then fail to
+# load this module. Keep the version in step with the `go` directive in go.mod.
+all: false
+dir: '{{.InterfaceDir}}'
+filename: 'mocks/{{.InterfaceName}}_mock.go'
+force-file-write: true
+formatter: goimports
+generate: true
+include-auto-generated: false
+log-level: info
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: 'mocks'
+recursive: false
+require-template-schema-exists: true
+template: testify
+template-schema: '{{.Template}}.schema.json'
+packages:
+  go-backend-service-blueprint/internal/app/healthcheck:
+    interfaces:
+      Checker:
+  go-backend-service-blueprint/internal/app/user:
+    interfaces:
+      RateLimiter:
+  go-backend-service-blueprint/internal/domain/user:
+    interfaces:
+      Repository:
+  go-backend-service-blueprint/internal/presentation/http/user:
+    interfaces:
+      UseCases:

@@ -6,14 +6,22 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go-backend-service-blueprint/cmd/shared"
 	"go-backend-service-blueprint/config"
 	_ "go-backend-service-blueprint/docs"
+	"go-backend-service-blueprint/internal/app/healthcheck"
+	appuser "go-backend-service-blueprint/internal/app/user"
 	inframonitoring "go-backend-service-blueprint/internal/infrastructure/monitoring"
+	"go-backend-service-blueprint/internal/infrastructure/postgres"
+	infraredis "go-backend-service-blueprint/internal/infrastructure/redis"
 	presentationhc "go-backend-service-blueprint/internal/presentation/http/healthcheck"
 	"go-backend-service-blueprint/internal/presentation/http/hello"
 	presmonitoring "go-backend-service-blueprint/internal/presentation/http/monitoring"
+	presentationuser "go-backend-service-blueprint/internal/presentation/http/user"
+	"go-backend-service-blueprint/pkg/database"
+	"go-backend-service-blueprint/pkg/redis"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
@@ -23,19 +31,28 @@ import (
 
 const appName = "http_server_app"
 
+type Dependencies struct {
+	DB    *database.AppDB
+	Redis *redis.AppRedis
+}
+
 type HTTPApp struct {
 	server *fiber.App
 	cfg    *config.HTTPAppConfig
 	logger *slog.Logger
 	ms     *inframonitoring.PrometheusMetricsService
+	db     *database.AppDB
+	redis  *redis.AppRedis
 }
 
-func NewHTTPApp(cfg *config.HTTPAppConfig) *HTTPApp {
+func NewHTTPApp(cfg *config.HTTPAppConfig, deps Dependencies) *HTTPApp {
 	app := &HTTPApp{
 		server: NewFiber(cfg),
 		cfg:    cfg,
 		logger: shared.NewLogger(),
 		ms:     NewMetricsService(cfg.Namespace, appName, cfg.PodName),
+		db:     deps.DB,
+		redis:  deps.Redis,
 	}
 	app.setupRoutes()
 
@@ -43,8 +60,7 @@ func NewHTTPApp(cfg *config.HTTPAppConfig) *HTTPApp {
 }
 
 func (app *HTTPApp) setupRoutes() {
-	hc := NewHealthcheck()
-	healthcheckHandler := presentationhc.NewHandler(hc)
+	healthcheckHandler := presentationhc.NewHandler(NewHealthcheck(app.checkers()...))
 
 	healthcheckGroup := app.server.Group("/healthcheck")
 	healthcheckGroup.Use(presmonitoring.HTTPMonitoringMiddleware(app.ms))
@@ -55,10 +71,52 @@ func (app *HTTPApp) setupRoutes() {
 	helloGroup.Use(presmonitoring.HTTPMonitoringMiddleware(app.ms))
 	helloGroup.Get("", helloHandler.Hello)
 
+	if app.db != nil {
+		userHandler := presentationuser.NewHandler(
+			appuser.NewUseCases(
+				postgres.NewUserRepository(app.db),
+				app.rateLimiter(),
+				app.cfg.UserCreatePerMinute,
+				app.logger,
+			),
+			time.Duration(app.cfg.RequestTimeout)*time.Second,
+		)
+
+		users := app.server.Group("/api/v1/users")
+		users.Use(presmonitoring.HTTPMonitoringMiddleware(app.ms))
+		users.Post("", userHandler.Create)
+		users.Get("", userHandler.List)
+		users.Get("/:id", userHandler.Get)
+	} else {
+		app.logger.Warn("database is not configured, user endpoints are disabled")
+	}
+
 	promMetrics := app.server.Group("/metrics")
 	promMetrics.Get("", adaptor.HTTPHandler(promhttp.HandlerFor(app.ms.Registry(), promhttp.HandlerOpts{})))
 
 	app.server.Get("/swagger/*", adaptor.HTTPHandler(httpSwagger.WrapHandler))
+}
+
+func (app *HTTPApp) rateLimiter() appuser.RateLimiter {
+	if app.redis == nil {
+		app.logger.Warn("redis is not configured, rate limiting is disabled")
+
+		return appuser.NewUnlimited()
+	}
+
+	return infraredis.NewRateLimiter(app.redis)
+}
+
+func (app *HTTPApp) checkers() []healthcheck.Checker {
+	checkers := make([]healthcheck.Checker, 0, 2)
+	if app.db != nil {
+		checkers = append(checkers, app.db)
+	}
+	if app.redis != nil {
+		checkers = append(checkers, app.redis)
+	}
+
+	return checkers
 }
 
 func (app *HTTPApp) Run() error {
@@ -86,4 +144,13 @@ func (app *HTTPApp) Run() error {
 	}
 }
 
-func (app *HTTPApp) Close() {}
+func (app *HTTPApp) Close() {
+	if app.redis != nil {
+		if err := app.redis.Close(); err != nil {
+			app.logger.Error("failed to close redis", "error", err)
+		}
+	}
+	if app.db != nil {
+		app.db.Close()
+	}
+}

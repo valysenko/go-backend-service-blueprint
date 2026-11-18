@@ -19,12 +19,155 @@ definitions:
       message:
         type: string
     type: object
+  presentation.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  user.CreateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      fullName:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - email
+    - fullName
+    type: object
+  user.ListUsersResponse:
+    properties:
+      currentPage:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/user.UserResponse'
+        type: array
+      limit:
+        type: integer
+    type: object
+  user.UserResponse:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      fullName:
+        type: string
+      id:
+        type: string
+      updatedAt:
+        type: string
+    type: object
 info:
   contact: {}
   description: Reference HTTP API of the service blueprint.
   title: Go Backend Service Blueprint API
   version: "1.0"
 paths:
+  /api/v1/users:
+    get:
+      description: Returns a page of users, newest first.
+      parameters:
+      - description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.ListUsersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+      summary: List users
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Creates a user. The email is normalized and must be unique.
+      parameters:
+      - description: User to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+      summary: Create user
+      tags:
+      - users
+  /api/v1/users/{id}:
+    get:
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/presentation.ErrorResponse'
+      summary: Get user
+      tags:
+      - users
   /healthcheck/:
     get:
       description: Reports the liveness of the app and its backing services.

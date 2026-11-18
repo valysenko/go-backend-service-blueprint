@@ -5,7 +5,7 @@ BASE_COMPOSE_PATH=./deployments/docker-compose.yml
 MONITORING_COMPOSE_PATH=./deployments/docker-compose-monitoring.yml
 COMPOSE=docker compose -p $(PROJECT_NAME) -f $(BASE_COMPOSE_PATH)
 
-.PHONY: copy-env build up down exec logs up-monitoring lint arch-lint swag test test-verbose debug-http
+.PHONY: copy-env build up down exec logs up-monitoring lint arch-lint mocks swag test test-verbose debug-http
 
 
 copy-env:
@@ -50,6 +50,9 @@ test:
 
 test-verbose:
 	docker exec -i $(APP_CONTAINER_NAME) go test -v ./... -count=1
+
+mocks:
+	docker exec -i $(APP_CONTAINER_NAME) sh -c "cd /src && GOTOOLCHAIN=go1.26.2 go run github.com/vektra/mockery/v3@v3.7.2"
 
 swag:
 	docker exec -i $(APP_CONTAINER_NAME) go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/http/main.go --parseInternal -o docs

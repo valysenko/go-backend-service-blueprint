@@ -11,6 +11,7 @@ commonComponents:
   - shared
 
 components:
+  domain:         { in: "internal/domain/**" }
   app:            { in: "internal/app/**" }
   infrastructure: { in: "internal/infrastructure/**" }
   presentation:   { in: "internal/presentation/**" }
@@ -20,15 +21,17 @@ components:
   entrypoint:     { in: "cmd/**" }
 
 deps:
+  domain:
+    mayDependOn: [ domain ]
   app:
-    mayDependOn: [ app ]
+    mayDependOn: [ domain, app ]
   config:
-    mayDependOn: [ infrastructure ]
+    mayDependOn: [ domain, infrastructure ]
   infrastructure:
-    mayDependOn: [ app, infrastructure ]
+    mayDependOn: [ domain, app, infrastructure ]
   presentation:
-    mayDependOn: [ app, presentation ]
+    mayDependOn: [ domain, app, presentation ]
   shared:
     mayDependOn: [ shared ]
   entrypoint:
-    mayDependOn: [ app, infrastructure, presentation, config, docs, entrypoint ]
+    mayDependOn: [ domain, app, infrastructure, presentation, config, docs, entrypoint ]

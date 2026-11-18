@@ -10,10 +10,10 @@ import (
 	"go-backend-service-blueprint/config"
 	"go-backend-service-blueprint/internal/app/healthcheck"
 	inframonitoring "go-backend-service-blueprint/internal/infrastructure/monitoring"
+	"go-backend-service-blueprint/internal/presentation"
 	"go-backend-service-blueprint/internal/presentation/http/middleware"
 	"go-backend-service-blueprint/pkg/ctxutils"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
 )
@@ -30,20 +30,12 @@ var secretHeaders = map[string]struct{}{
 	"X-Api-Key":                    {},
 }
 
-type structValidator struct {
-	validate *validator.Validate
-}
-
-func (v *structValidator) Validate(out any) error {
-	return v.validate.Struct(out)
-}
-
 func NewFiber(cfg *config.HTTPAppConfig) *fiber.App {
 	server := fiber.New(fiber.Config{
 		ReadTimeout:     time.Duration(cfg.ReadTimeout) * time.Second,
 		WriteTimeout:    time.Duration(cfg.WriteTimeout) * time.Second,
 		BodyLimit:       cfg.BodyLimit,
-		StructValidator: &structValidator{validate: validator.New()},
+		StructValidator: presentation.NewStructValidator(),
 	})
 
 	server.Use(middleware.RequestID())

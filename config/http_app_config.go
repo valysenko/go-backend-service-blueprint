@@ -11,6 +11,9 @@ type HTTPAppConfig struct {
 	PodName   string `env:"POD_NAME" env-default:"pod_name_was_not_set"`
 	Namespace string `env:"NAMESPACE" env-default:"blueprint"`
 	ServerConfig
+	PostgreSQLConfig
+	RedisConfig
+	RateLimitConfig
 }
 
 func InitHTTPAppConfig() *HTTPAppConfig {
