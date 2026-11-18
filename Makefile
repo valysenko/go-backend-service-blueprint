@@ -5,7 +5,7 @@ BASE_COMPOSE_PATH=./deployments/docker-compose.yml
 MONITORING_COMPOSE_PATH=./deployments/docker-compose-monitoring.yml
 COMPOSE=docker compose -p $(PROJECT_NAME) -f $(BASE_COMPOSE_PATH)
 
-.PHONY: copy-env build up down exec logs up-monitoring lint arch-lint mocks swag test test-verbose debug-http
+.PHONY: copy-env build up down exec logs cron up-monitoring lint arch-lint mocks swag test test-verbose test-integration debug-http
 
 
 copy-env:
@@ -29,6 +29,9 @@ exec:
 logs:
 	docker logs -f $(APP_CONTAINER_NAME)
 
+cron:
+	docker exec -i $(APP_CONTAINER_NAME) sh -c "cd /src && go run ./cmd/operations-cron"
+
 debug-http:
 	$(COMPOSE) stop app
 	$(COMPOSE) run --rm --service-ports app sh -c "cd /src && $(DLV) ./cmd/http"
@@ -45,11 +48,16 @@ lint:
 arch-lint:
 	docker exec -i $(APP_CONTAINER_NAME) go run github.com/fe3dback/go-arch-lint@v1.17.0 check
 
+# The app container has no docker socket, so the suite runs there with -short:
+# integration tests spin up their own postgres and therefore run on the host.
 test:
-	docker exec -i $(APP_CONTAINER_NAME) go test ./... -count=1
+	docker exec -i $(APP_CONTAINER_NAME) go test ./... -count=1 -short
 
 test-verbose:
-	docker exec -i $(APP_CONTAINER_NAME) go test -v ./... -count=1
+	docker exec -i $(APP_CONTAINER_NAME) go test -v ./... -count=1 -short
+
+test-integration:
+	go test ./... -count=1
 
 mocks:
 	docker exec -i $(APP_CONTAINER_NAME) sh -c "cd /src && GOTOOLCHAIN=go1.26.2 go run github.com/vektra/mockery/v3@v3.7.2"

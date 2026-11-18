@@ -75,6 +75,8 @@ func (app *HTTPApp) setupRoutes() {
 		userHandler := presentationuser.NewHandler(
 			appuser.NewUseCases(
 				postgres.NewUserRepository(app.db),
+				postgres.NewOperationRepository(app.db),
+				postgres.NewTxManager(app.db),
 				app.rateLimiter(),
 				app.cfg.UserCreatePerMinute,
 				app.logger,

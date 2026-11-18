@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"time"
 
+	"go-backend-service-blueprint/internal/app/tx"
+	domainoperation "go-backend-service-blueprint/internal/domain/operation"
 	domainuser "go-backend-service-blueprint/internal/domain/user"
 
 	"github.com/google/uuid"
@@ -28,8 +30,6 @@ type ListQuery struct {
 	Limit int
 }
 
-// ListResult echoes the page and limit actually applied, which the caller needs
-// to render pagination and cannot derive from the returned items.
 type ListResult struct {
 	Items []domainuser.User
 	Page  int
@@ -38,14 +38,25 @@ type ListResult struct {
 
 type UseCases struct {
 	repo             domainuser.Repository
+	operations       domainoperation.Repository
+	tx               tx.Manager
 	limiter          RateLimiter
 	createsPerMinute int
 	logger           *slog.Logger
 }
 
-func NewUseCases(repo domainuser.Repository, limiter RateLimiter, createsPerMinute int, logger *slog.Logger) *UseCases {
+func NewUseCases(
+	repo domainuser.Repository,
+	operations domainoperation.Repository,
+	manager tx.Manager,
+	limiter RateLimiter,
+	createsPerMinute int,
+	logger *slog.Logger,
+) *UseCases {
 	return &UseCases{
 		repo:             repo,
+		operations:       operations,
+		tx:               manager,
 		limiter:          limiter,
 		createsPerMinute: createsPerMinute,
 		logger:           logger,
@@ -57,14 +68,31 @@ func (uc *UseCases) Create(ctx context.Context, cmd CreateCommand) (*domainuser.
 		return nil, err
 	}
 
-	created, err := domainuser.New(cmd.Email, cmd.FullName, time.Now().UTC())
+	now := time.Now().UTC()
+	created, err := domainuser.New(cmd.Email, cmd.FullName, now)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := uc.repo.Create(ctx, created); err != nil {
+	err = uc.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if err := uc.repo.Create(ctx, created); err != nil {
+			return err
+		}
+
+		welcome := domainoperation.New(
+			domainoperation.OperationTypeSendWelcomeEmail,
+			created.UUID,
+			nil,
+			now,
+			now,
+		)
+
+		return uc.operations.Create(ctx, welcome)
+	})
+	if err != nil {
 		return nil, err
 	}
+
 	uc.logger.InfoContext(ctx, "user created", "user_uuid", created.UUID)
 
 	return created, nil

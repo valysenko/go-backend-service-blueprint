@@ -29,10 +29,14 @@ func NewUserRepository(db *database.AppDB) *UserRepository {
 	return &UserRepository{database: db}
 }
 
+func (r *UserRepository) querier(ctx context.Context) querier {
+	return querierFrom(ctx, r.database.Postgresql)
+}
+
 func (r *UserRepository) Create(ctx context.Context, user *domainuser.User) error {
 	query := `INSERT INTO users (` + userColumns + `) VALUES ($1, $2, $3, $4, $5)`
 
-	_, err := r.database.Postgresql.Exec(ctx, query,
+	_, err := r.querier(ctx).Exec(ctx, query,
 		user.UUID, user.Email, user.FullName, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -50,7 +54,7 @@ func (r *UserRepository) GetByUUID(ctx context.Context, id uuid.UUID) (*domainus
 	query := `SELECT ` + userColumns + ` FROM users WHERE uuid = $1`
 
 	var user domainuser.User
-	err := r.database.Postgresql.QueryRow(ctx, query, id).
+	err := r.querier(ctx).QueryRow(ctx, query, id).
 		Scan(&user.UUID, &user.Email, &user.FullName, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -68,7 +72,7 @@ func (r *UserRepository) List(ctx context.Context, filter domainuser.ListFilter)
 		ORDER BY created_at DESC, uuid
 		LIMIT $1 OFFSET $2`
 
-	rows, err := r.database.Postgresql.Query(ctx, query, filter.Limit, filter.Offset)
+	rows, err := r.querier(ctx).Query(ctx, query, filter.Limit, filter.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("select users: %w", err)
 	}

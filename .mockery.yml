@@ -22,9 +22,21 @@ packages:
   go-backend-service-blueprint/internal/app/healthcheck:
     interfaces:
       Checker:
+  go-backend-service-blueprint/internal/app/tx:
+    interfaces:
+      Manager:
+  go-backend-service-blueprint/internal/app/operation:
+    interfaces:
+      Executor:
+      UserSource:
+      EmailSender:
+      CronMetrics:
   go-backend-service-blueprint/internal/app/user:
     interfaces:
       RateLimiter:
+  go-backend-service-blueprint/internal/domain/operation:
+    interfaces:
+      Repository:
   go-backend-service-blueprint/internal/domain/user:
     interfaces:
       Repository:
