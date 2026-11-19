@@ -5,7 +5,7 @@ BASE_COMPOSE_PATH=./deployments/docker-compose.yml
 MONITORING_COMPOSE_PATH=./deployments/docker-compose-monitoring.yml
 COMPOSE=docker compose -p $(PROJECT_NAME) -f $(BASE_COMPOSE_PATH)
 
-.PHONY: copy-env build up down exec logs cron up-monitoring lint arch-lint mocks swag test test-verbose test-integration debug-http
+.PHONY: copy-env build up down exec logs cron up-monitoring lint arch-lint mocks swag test test-verbose test-integration debug-http up-kafka bootstrap-kafka-topics register-user-schema logs-kafka-user logs-kafka-events debug-kafka-user debug-kafka-events
 
 
 copy-env:
@@ -64,3 +64,30 @@ mocks:
 
 swag:
 	docker exec -i $(APP_CONTAINER_NAME) go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/http/main.go --parseInternal -o docs
+
+KAFKA_COMPOSE=docker compose -p $(PROJECT_NAME) -f $(BASE_COMPOSE_PATH) -f ./deployments/docker-compose-kafka.yml -f ./deployments/docker-compose-kafka-consumers.yml
+
+up-kafka: copy-env
+	$(KAFKA_COMPOSE) up -d
+
+bootstrap-kafka-topics:
+	./deployments/bootstrap-kafka-topics.sh
+
+register-user-schema:
+	python3 ./deployments/kafka/register-user-schema.py
+
+logs-kafka-user:
+	$(KAFKA_COMPOSE) logs -f kafka-user
+
+logs-kafka-events:
+	$(KAFKA_COMPOSE) logs -f kafka-events
+
+debug-kafka-user:
+	$(KAFKA_COMPOSE) stop kafka-user
+	$(KAFKA_COMPOSE) run --rm --service-ports kafka-user sh -c "cd /src && $(DLV) ./cmd/kafka-user"
+	$(KAFKA_COMPOSE) start kafka-user
+
+debug-kafka-events:
+	$(KAFKA_COMPOSE) stop kafka-events
+	$(KAFKA_COMPOSE) run --rm --service-ports kafka-events sh -c "cd /src && $(DLV) ./cmd/kafka-events"
+	$(KAFKA_COMPOSE) start kafka-events

@@ -43,3 +43,22 @@ packages:
   go-backend-service-blueprint/internal/presentation/http/user:
     interfaces:
       UseCases:
+  go-backend-service-blueprint/pkg/kafka/reader:
+    interfaces:
+      KafkaClient:
+      MessageHandler:
+  go-backend-service-blueprint/pkg/kafka/reader/handler:
+    interfaces:
+      MessageProcessor:
+      DeduplicationStorage:
+      DlIncrementStorage:
+      DlDecrementStorage:
+      MetricsRecorder:
+      Validator:
+  go-backend-service-blueprint/pkg/kafka/writer:
+    interfaces:
+      Writer:
+      Validator:
+  go-backend-service-blueprint/pkg/kafka/schemaregistry:
+    interfaces:
+      Registry:

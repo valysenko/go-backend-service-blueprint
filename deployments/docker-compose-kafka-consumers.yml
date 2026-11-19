@@ -1,0 +1,46 @@
+services:
+  kafka-user:
+    build:
+      context: ../
+      dockerfile: deployments/app/Dockerfile
+      target: dev
+    working_dir: /src
+    command: ["air", "-c", ".air.kafka-user.toml"]
+    restart: always
+    volumes:
+      - ../:/src
+      - blueprint-go-mod:/go/pkg/mod
+      - blueprint-go-build:/root/.cache/go-build
+    ports: ["8097:8097", "40001:40000"]
+    cap_add: [SYS_PTRACE]
+    security_opt: ["seccomp:unconfined"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      KAFKA_MONITORING_PORT: "8097"
+    depends_on: [redis, kafka]
+    networks: [blueprint-network]
+
+  kafka-events:
+    build:
+      context: ../
+      dockerfile: deployments/app/Dockerfile
+      target: dev
+    working_dir: /src
+    command: ["air", "-c", ".air.kafka-events.toml"]
+    restart: always
+    volumes:
+      - ../:/src
+      - blueprint-go-mod:/go/pkg/mod
+      - blueprint-go-build:/root/.cache/go-build
+    ports: ["8098:8097", "40002:40000"]
+    cap_add: [SYS_PTRACE]
+    security_opt: ["seccomp:unconfined"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      KAFKA_MONITORING_PORT: "8097"
+    depends_on: [redis, kafka]
+    networks: [blueprint-network]
