@@ -63,7 +63,7 @@ services:
     env_file:
       - path: .env
         required: false
-    depends_on: [rabbitmq]
+    depends_on: [rabbitmq, redis]
     networks:
       - blueprint-network
     profiles: ["rabbitmq"]

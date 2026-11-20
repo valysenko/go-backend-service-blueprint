@@ -30,6 +30,7 @@ const (
 )
 
 type Delivery struct {
+	MessageID   string
 	Body        []byte
 	Attempt     int
 	Redelivered bool
@@ -294,7 +295,7 @@ func (c *Consumer) process(ctx context.Context, d amqp.Delivery) {
 	redelivered := d.Redelivered || d.Headers[deathHeader] != nil
 	attempt := 1
 	for {
-		err := c.handle(ctx, time.Since(started), Delivery{Body: d.Body, Attempt: attempt, Redelivered: redelivered})
+		err := c.handle(ctx, time.Since(started), Delivery{MessageID: d.MessageId, Body: d.Body, Attempt: attempt, Redelivered: redelivered})
 		if err == nil {
 			c.settle(log, d.Ack(false), OutcomeProcessed, started)
 			return

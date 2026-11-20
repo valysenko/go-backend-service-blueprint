@@ -2,6 +2,7 @@ package kafkaapp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -127,6 +128,9 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	if err := g.Wait(); err != nil {
+		if ctx.Err() != nil && errors.Is(err, context.Canceled) {
+			return nil
+		}
 		a.logger.Error("error running Kafka topic readers", "error", err)
 		return fmt.Errorf("kafka topic readers failed: %w", err)
 	}

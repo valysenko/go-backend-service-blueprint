@@ -1,10 +1,25 @@
 package reader
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	kafkaPkg "github.com/segmentio/kafka-go"
 )
+
+// StableID follows the deduplication identity: a producer-supplied id header,
+// or a hash of key and body when it is absent. It also survives DL forwarding.
+func (m Message) StableID() string {
+	if id, err := m.GetHeader("id"); err == nil {
+		return "id:" + id
+	}
+	hash := sha256.New()
+	_, _ = hash.Write(m.Key())
+	_, _ = hash.Write([]byte{0})
+	_, _ = hash.Write(m.Body())
+	return "content:" + hex.EncodeToString(hash.Sum(nil))
+}
 
 type Message struct {
 	message kafkaPkg.Message

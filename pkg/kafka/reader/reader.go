@@ -56,6 +56,7 @@ type KafkaTopicReader struct {
 	client  KafkaClient
 	logger  *slog.Logger
 	handler MessageHandler
+	// Reader might have it's related DL topic publisher
 	closers []io.Closer
 
 	closeOnce sync.Once
@@ -96,10 +97,6 @@ func (r *KafkaTopicReader) Close() error {
 	return err
 }
 
-// TODO: test in next PR
-// TODO: investigate if ok
-// {"time":"2026-04-23T06:28:05.663900924Z","level":"ERROR","msg":"Failed to sync group user-management-group: [27] Rebalance In Progress: the coordinator has begun rebalancing the group, the client should rejoin the group"}
-// {"time":"2026-04-23T06:28:05.663964091Z","level":"ERROR","msg":"[27] Rebalance In Progress: the coordinator has begun rebalancing the group, the client should rejoin the group"}
 func (r *KafkaTopicReader) Run(ctx context.Context) error {
 	msgCh := make(chan *Message, 16)
 	errCh := make(chan error, 1)

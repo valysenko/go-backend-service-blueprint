@@ -7,6 +7,7 @@ import (
 	"go-backend-service-blueprint/cmd/shared"
 	"go-backend-service-blueprint/cmd/shared/kafkaapp"
 	"go-backend-service-blueprint/config"
+	"go-backend-service-blueprint/internal/app/kafkaexample"
 	"go-backend-service-blueprint/internal/infrastructure/monitoring"
 	kafkaPresentation "go-backend-service-blueprint/internal/presentation/kafka"
 	"go-backend-service-blueprint/pkg/kafka/reader/handler"
@@ -41,7 +42,7 @@ func run() error {
 		}
 	}()
 
-	processor := &kafkaPresentation.EventHandler{Logger: logger}
+	processor := &kafkaPresentation.EventHandler{UseCase: kafkaexample.NewEventUseCase(logger)}
 	source := storage.DLSource{Topic: eventsTopic, ConsumerGroup: eventsGroup}
 	consumers := []kafkaapp.TopicConsumer{
 		kafkaapp.MustBaseFlowTopicConsumer(kafkaapp.BaseFlowConfig{

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"time"
 
 	"go-backend-service-blueprint/config"
 	"go-backend-service-blueprint/internal/app/healthcheck"
 	"go-backend-service-blueprint/internal/infrastructure/monitoring"
+	rabbitinfra "go-backend-service-blueprint/internal/infrastructure/rabbitmq"
 	presentationhc "go-backend-service-blueprint/internal/presentation/http/healthcheck"
 	"go-backend-service-blueprint/pkg/rabbitmq"
 
@@ -21,11 +23,13 @@ type RabbitMQApp struct {
 	consumers *rabbitmq.ConsumerSet
 	server    *fiber.App
 	port      string
+	closers   []io.Closer
 }
 
-func NewRabbitMQApp(cfg *config.RabbitMQAppConfig, logger *slog.Logger) (*RabbitMQApp, error) {
+func NewRabbitMQApp(cfg *config.RabbitMQAppConfig, logger *slog.Logger, store rabbitmq.DeduplicationStore, extraCheckers ...healthcheck.Checker) (*RabbitMQApp, error) {
 	metrics := monitoring.NewRabbitMQMetrics()
-	consumers, err := newConsumers(connectionConfig(cfg), metrics, logger)
+	publisher := rabbitmq.NewPublisher(connectionConfig(cfg), outputQueue)
+	consumers, err := newConsumers(connectionConfig(cfg), metrics, logger, &rabbitinfra.ExamplePublisher{Publisher: publisher}, store)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +37,7 @@ func NewRabbitMQApp(cfg *config.RabbitMQAppConfig, logger *slog.Logger) (*Rabbit
 	for _, consumer := range consumers.Consumers() {
 		checkers = append(checkers, consumer)
 	}
+	checkers = append(checkers, extraCheckers...)
 	hc := presentationhc.NewHandler(healthcheck.NewHealthcheck(checkers...))
 	server := fiber.New(fiber.Config{ReadTimeout: 5 * time.Second})
 	server.Get("/healthcheck", hc.Check)
@@ -41,10 +46,16 @@ func NewRabbitMQApp(cfg *config.RabbitMQAppConfig, logger *slog.Logger) (*Rabbit
 		consumers: consumers,
 		server:    server,
 		port:      cfg.MonitoringPort,
+		closers:   []io.Closer{publisher},
 	}, nil
 }
 
-func (app *RabbitMQApp) Run(ctx context.Context) error {
+func (app *RabbitMQApp) Run(ctx context.Context) (runErr error) {
+	defer func() {
+		for i := len(app.closers) - 1; i >= 0; i-- {
+			runErr = errors.Join(runErr, app.closers[i].Close())
+		}
+	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -55,7 +66,6 @@ func (app *RabbitMQApp) Run(ctx context.Context) error {
 	consumerErrors := make(chan error, 1)
 	go func() { consumerErrors <- app.consumers.Run(ctx) }()
 
-	var runErr error
 	select {
 	case runErr = <-serverErrors:
 		cancel()

@@ -19,6 +19,7 @@ components:
   config:         { in: "config/**" }
   docs:           { in: "docs/**" }
   entrypoint:     { in: "cmd/**" }
+  testutils:      { in: "internal/testutils/**" }
 
 deps:
   domain:

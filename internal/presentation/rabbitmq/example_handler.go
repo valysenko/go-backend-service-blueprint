@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 
+	"go-backend-service-blueprint/internal/app/rabbitmqexample"
 	"go-backend-service-blueprint/pkg/rabbitmq"
 )
 
@@ -13,9 +13,13 @@ type ExampleMessage struct {
 	Text string `json:"text"`
 }
 
+type UseCase interface {
+	Execute(context.Context, rabbitmqexample.Command) error
+}
+
 type ExampleHandler struct {
-	Logger *slog.Logger
-	Queue  string
+	UseCase UseCase
+	Queue   string
 }
 
 func (h *ExampleHandler) Handle(ctx context.Context, delivery rabbitmq.Delivery) error {
@@ -26,6 +30,10 @@ func (h *ExampleHandler) Handle(ctx context.Context, delivery rabbitmq.Delivery)
 	if msg.Text == "" {
 		return rabbitmq.NewPermanentError(fmt.Errorf("text is required"))
 	}
-	h.Logger.InfoContext(ctx, "received rabbitmq message", "queue", h.Queue, "text", msg.Text, "attempt", delivery.Attempt)
-	return nil
+	return h.UseCase.Execute(ctx, rabbitmqexample.Command{
+		MessageID: delivery.MessageID,
+		Queue:     h.Queue,
+		Text:      msg.Text,
+		Attempt:   delivery.Attempt,
+	})
 }

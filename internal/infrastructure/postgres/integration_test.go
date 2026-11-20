@@ -18,15 +18,14 @@ import (
 	"go-backend-service-blueprint/internal/infrastructure/postgres"
 	"go-backend-service-blueprint/pkg/database"
 
+	"go-backend-service-blueprint/internal/testutils"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
 const (
-	postgresImage = "postgres:17.2-alpine"
 	migrationsDir = "./migrations"
 )
 
@@ -45,67 +44,36 @@ func TestMain(m *testing.M) {
 
 	ctx := context.Background()
 
-	container, err := tcpostgres.Run(ctx, postgresImage,
-		tcpostgres.WithDatabase("blueprint_test"),
-		tcpostgres.WithUsername("blueprint"),
-		tcpostgres.WithPassword("blueprint"),
-		tcpostgres.BasicWaitStrategies(),
-	)
+	container, terminate, err := testutils.RunPostgresContainer(ctx)
 	if err != nil {
 		log.Fatalf("start postgres container: %v", err)
 	}
-
 	code := func() int {
-		defer func() {
-			if err := testcontainers.TerminateContainer(container); err != nil {
-				log.Printf("terminate postgres container: %v", err)
-			}
-		}()
-
-		testDB, err = connect(ctx, container)
+		defer terminate()
+		testDB, err = connect(container)
 		if err != nil {
 			log.Fatalf("connect to postgres container: %v", err)
 		}
 		defer testDB.Close()
-
 		return m.Run()
 	}()
 
 	os.Exit(code)
 }
 
-func connect(ctx context.Context, container *tcpostgres.PostgresContainer) (*database.AppDB, error) {
-	host, err := container.Host(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	port, err := container.MappedPort(ctx, "5432/tcp")
-	if err != nil {
-		return nil, err
-	}
-
+func connect(container testutils.PostgresContainer) (*database.AppDB, error) {
 	db, err := database.InitDB(&database.DBConfig{
-		Host:           host,
-		Port:           port.Port(),
-		Username:       "blueprint",
-		Password:       "blueprint",
-		DBName:         "blueprint_test",
-		SSLMode:        "disable",
-		MaxConns:       4,
-		MinConns:       1,
-		ConnectTimeout: 5,
+		Host: container.Host, Port: container.Port, Username: container.User,
+		Password: container.Password, DBName: container.DBName, SSLMode: "disable",
+		MaxConns: 4, MinConns: 1, ConnectTimeout: 5,
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	if err := db.RunMigrations(migrationsDir); err != nil {
 		db.Close()
-
 		return nil, err
 	}
-
 	return db, nil
 }
 

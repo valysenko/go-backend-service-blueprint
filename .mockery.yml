@@ -62,3 +62,30 @@ packages:
   go-backend-service-blueprint/pkg/kafka/schemaregistry:
     interfaces:
       Registry:
+  go-backend-service-blueprint/internal/app/kafkaexample:
+    interfaces:
+      EventPublisher:
+  go-backend-service-blueprint/internal/presentation/kafka:
+    interfaces:
+      UserUseCase:
+      EventUseCase:
+  go-backend-service-blueprint/internal/presentation/rabbitmq:
+    interfaces:
+      UseCase:
+  go-backend-service-blueprint/internal/app/rabbitmqexample:
+    interfaces:
+      Publisher:
+  go-backend-service-blueprint/internal/app/monitoring:
+    interfaces:
+      HTTPMetricsRecorder:
+  go-backend-service-blueprint/internal/presentation/http/healthcheck:
+    interfaces:
+      CheckHealthUseCase:
+  go-backend-service-blueprint/cmd/shared/kafkaapp:
+    interfaces:
+      MetricsService:
+  go-backend-service-blueprint/pkg/rabbitmq:
+    interfaces:
+      Handler:
+      Observer:
+      DeduplicationStore:

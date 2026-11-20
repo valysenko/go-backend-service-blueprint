@@ -70,7 +70,9 @@ func ReplayDeadLetters(ctx context.Context, cfg Config, spec QueueSpec, limit in
 
 func republish(ctx context.Context, ch *amqp.Channel, returns <-chan amqp.Return, spec QueueSpec, d amqp.Delivery) error {
 	drainReturns(returns)
-	confirmation, err := ch.PublishWithDeferredConfirmWithContext(ctx, spec.exchange(), spec.Name, spec.routesOnPublish(), false, amqp.Publishing{
+	// Replay is immediate: routing through the default exchange allows the
+	// broker to return an unroutable message even for a delayed queue.
+	confirmation, err := ch.PublishWithDeferredConfirmWithContext(ctx, "", spec.Name, true, false, amqp.Publishing{
 		ContentType:  d.ContentType,
 		DeliveryMode: amqp.Persistent,
 		MessageId:    d.MessageId,

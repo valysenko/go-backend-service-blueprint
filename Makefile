@@ -5,7 +5,7 @@ BASE_COMPOSE_PATH=./deployments/docker-compose.yml
 MONITORING_COMPOSE_PATH=./deployments/docker-compose-monitoring.yml
 COMPOSE=docker compose -p $(PROJECT_NAME) -f $(BASE_COMPOSE_PATH)
 
-.PHONY: copy-env build up down exec logs cron up-monitoring lint arch-lint mocks swag test test-verbose test-integration debug-http up-kafka bootstrap-kafka-topics register-user-schema logs-kafka-user logs-kafka-events debug-kafka-user debug-kafka-events
+.PHONY: copy-env build up down exec logs cron up-monitoring lint arch-lint mocks swag test test-verbose test-integration test-integration-rabbitmq debug-http up-kafka bootstrap-kafka-topics register-user-schema logs-kafka-user logs-kafka-events debug-kafka-user debug-kafka-events up-rabbitmq logs-rabbitmq-consumer replay-dlq
 
 
 copy-env:
@@ -57,7 +57,11 @@ test-verbose:
 	docker exec -i $(APP_CONTAINER_NAME) go test -v ./... -count=1 -short
 
 test-integration:
-	go test ./... -count=1
+	go test -p 1 ./... -count=1
+
+# The RabbitMQ package tests use an isolated Testcontainers broker.
+test-integration-rabbitmq:
+	go test ./pkg/rabbitmq/... -count=1 -v
 
 mocks:
 	docker exec -i $(APP_CONTAINER_NAME) sh -c "cd /src && GOTOOLCHAIN=go1.26.2 go run github.com/vektra/mockery/v3@v3.7.2"

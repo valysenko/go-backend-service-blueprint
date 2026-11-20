@@ -3,6 +3,7 @@ package config
 import "github.com/ilyakaznacheev/cleanenv"
 
 type RabbitMQAppConfig struct {
+	RedisConfig
 	Host           string `env:"RABBITMQ_HOST" env-default:"blueprint-rabbitmq"`
 	Port           int    `env:"RABBITMQ_PORT" env-default:"5672"`
 	User           string `env:"RABBITMQ_USER" env-default:"blueprint"`

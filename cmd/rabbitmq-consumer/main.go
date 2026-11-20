@@ -10,6 +10,7 @@ import (
 
 	"go-backend-service-blueprint/cmd/shared"
 	"go-backend-service-blueprint/config"
+	"go-backend-service-blueprint/pkg/rabbitmq/storage"
 )
 
 func main() {
@@ -41,13 +42,22 @@ func main() {
 			log.Printf("replayed %d messages from %s", count, *replay)
 		}
 	default:
-		var app *RabbitMQApp
-		app, err = NewRabbitMQApp(cfg, shared.NewLogger())
-		if err == nil {
-			err = app.Run(ctx)
-		}
+		err = runConsumer(ctx, cfg)
 	}
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func runConsumer(ctx context.Context, cfg *config.RabbitMQAppConfig) (runErr error) {
+	redis, err := shared.NewRedis(cfg.RedisConfig)
+	if err != nil {
+		return err
+	}
+	defer func() { runErr = errors.Join(runErr, redis.Close()) }()
+	app, err := NewRabbitMQApp(cfg, shared.NewLogger(), storage.NewDeduplicationStorage(redis), redis)
+	if err != nil {
+		return err
+	}
+	return app.Run(ctx)
 }

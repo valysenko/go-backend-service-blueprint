@@ -4,16 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 
+	"go-backend-service-blueprint/internal/app/kafkaexample"
 	"go-backend-service-blueprint/pkg/kafka/reader"
 
 	"github.com/google/uuid"
 )
-
-type Publisher interface {
-	Publish(context.Context, []byte, any) error
-}
 
 type UserMessage struct {
 	UUID  uuid.UUID `json:"uuid"`
@@ -25,28 +21,37 @@ type EventMessage struct {
 	SomeField string    `json:"someField"`
 }
 
-type UserHandler struct {
-	Logger    *slog.Logger
-	Publisher Publisher
+type UserUseCase interface {
+	HandleUser(context.Context, kafkaexample.UserCommand) error
 }
 
-// Process
+type EventUseCase interface {
+	HandleEvent(context.Context, kafkaexample.EventCommand) error
+}
+
+type UserHandler struct {
+	UseCase UserUseCase
+}
+
 func (h *UserHandler) Process(ctx context.Context, msg *reader.Message) error {
 	var user UserMessage
 	if err := json.Unmarshal(msg.Body(), &user); err != nil {
 		return fmt.Errorf("decode user: %w", err)
 	}
-	h.Logger.InfoContext(ctx, "received user", "uuid", user.UUID, "email", user.Email)
-	return h.Publisher.Publish(ctx, msg.Key(), EventMessage{EventID: uuid.New(), SomeField: user.Email})
+	if err := h.UseCase.HandleUser(ctx, kafkaexample.UserCommand{
+		UUID: user.UUID, Email: user.Email, Key: msg.Key(), MessageID: msg.StableID(),
+	}); err != nil {
+		return fmt.Errorf("handle user: %w", err)
+	}
+	return nil
 }
 
-type EventHandler struct{ Logger *slog.Logger }
+type EventHandler struct{ UseCase EventUseCase }
 
 func (h *EventHandler) Process(ctx context.Context, msg *reader.Message) error {
 	var event EventMessage
 	if err := json.Unmarshal(msg.Body(), &event); err != nil {
 		return fmt.Errorf("decode event: %w", err)
 	}
-	h.Logger.InfoContext(ctx, "received event", "eventId", event.EventID, "someField", event.SomeField)
-	return nil
+	return h.UseCase.HandleEvent(ctx, kafkaexample.EventCommand{EventID: event.EventID, SomeField: event.SomeField})
 }

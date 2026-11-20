@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"go-backend-service-blueprint/internal/domain/operation"
+	"go-backend-service-blueprint/pkg/ctxutils"
 
 	"github.com/google/uuid"
 )
@@ -49,7 +49,8 @@ func NewRunner(
 
 func (r *Runner) Run(ctx context.Context, plannedAt time.Time) (Summary, error) {
 	startedAt := time.Now()
-	runID := strconv.FormatInt(startedAt.Unix(), 10)
+	runID := ctxutils.NewRequestID()
+	ctx = ctxutils.WithRequestID(ctx, runID)
 	afterUUID := uuid.Nil
 	summary := Summary{}
 

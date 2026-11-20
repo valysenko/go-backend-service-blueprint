@@ -38,12 +38,7 @@ type Options struct {
 	// Consumers are the [topic + consumer group] pairs this app subscribes to
 	Consumers []TopicConsumer
 
-	// Closers are resources whose lifetime matches the app rather than any one
-	// reader — typically a processor holding a kafka writer or an AMQP
-	// connection. Closed in reverse order once every reader has stopped.
-	//
-	// Resources bound to a single reader (the BaseFlow DL writer) do not belong
-	// here: the reader closes those itself.
+	// App-level closers. Which might be shared between readers (f.e some Publisher in kafka consumer)
 	Closers []io.Closer
 
 	// Checkers are the /healthcheck targets

@@ -11,6 +11,7 @@ import (
 	txmocks "go-backend-service-blueprint/internal/app/tx/mocks"
 	domainoperation "go-backend-service-blueprint/internal/domain/operation"
 	operationmocks "go-backend-service-blueprint/internal/domain/operation/mocks"
+	"go-backend-service-blueprint/pkg/ctxutils"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -132,4 +133,24 @@ func TestRunnerCountsAFailingRowAndKeepsGoing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, summary.Completed)
 	assert.Equal(t, 1, summary.Recoverable)
+}
+
+func TestRunnerUsesRunIDAsRequestID(t *testing.T) {
+	plannedAt := time.Now().UTC()
+	var requestID string
+	repo := operationmocks.NewMockRepository(t)
+	repo.EXPECT().ListPlannedBatch(mock.Anything, plannedAt, uuid.Nil, 10).
+		RunAndReturn(func(ctx context.Context, _ time.Time, _ uuid.UUID, _ int) ([]*domainoperation.Operation, error) {
+			requestID = ctxutils.GetFromContext(ctx)
+			return nil, nil
+		}).Once()
+	metrics := mocks.NewMockCronMetrics(t)
+	metrics.EXPECT().ObserveRunDuration(mock.Anything, mock.Anything).
+		Run(func(_ time.Duration, runID string) { assert.Equal(t, requestID, runID) }).Once()
+	metrics.EXPECT().Push().Return(nil).Once()
+	runner := appoperation.NewRunner(repo, nil, metrics, discard, 10)
+	_, err := runner.Run(context.Background(), plannedAt)
+	require.NoError(t, err)
+	_, err = uuid.Parse(requestID)
+	require.NoError(t, err)
 }

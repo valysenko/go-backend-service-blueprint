@@ -9,6 +9,7 @@ import (
 	"go-backend-service-blueprint/cmd/shared"
 	"go-backend-service-blueprint/cmd/shared/kafkaapp"
 	"go-backend-service-blueprint/config"
+	"go-backend-service-blueprint/internal/app/kafkaexample"
 	kafkaInfra "go-backend-service-blueprint/internal/infrastructure/kafka"
 	"go-backend-service-blueprint/internal/infrastructure/monitoring"
 	kafkaPresentation "go-backend-service-blueprint/internal/presentation/kafka"
@@ -59,8 +60,7 @@ func run() error {
 		return err
 	}
 	processor := &kafkaPresentation.UserHandler{
-		Logger:    logger,
-		Publisher: &kafkaInfra.Publisher{Writer: w},
+		UseCase: kafkaexample.NewUserUseCase(logger, &kafkaInfra.Publisher{Writer: w}),
 	}
 	source := storage.DLSource{Topic: userTopic, ConsumerGroup: userGroup}
 	consumers := []kafkaapp.TopicConsumer{
