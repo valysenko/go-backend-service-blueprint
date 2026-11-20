@@ -31,6 +31,43 @@ services:
     networks:
       - blueprint-network
 
+  rabbitmq:
+    build:
+      context: ./rabbitmq
+    container_name: blueprint-rabbitmq
+    hostname: blueprint-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-blueprint}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-blueprint}
+    ports:
+      - "15696:15672"
+      - "56796:5672"
+    networks:
+      - blueprint-network
+    profiles: ["rabbitmq"]
+
+  rabbitmq-consumer:
+    build:
+      target: dev
+      context: ../
+      dockerfile: deployments/app/Dockerfile
+    working_dir: /src
+    command: ["air", "-c", ".air.rabbitmq.toml"]
+    restart: always
+    volumes:
+      - ../:/src
+      - blueprint-go-mod:/go/pkg/mod
+      - blueprint-go-build:/root/.cache/go-build
+    ports: ["8099:8099"]
+    env_file:
+      - path: .env
+        required: false
+    depends_on: [rabbitmq]
+    networks:
+      - blueprint-network
+    profiles: ["rabbitmq"]
+
   postgres:
     image: postgres:17.2-alpine
     container_name: blueprint-postgres

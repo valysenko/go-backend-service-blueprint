@@ -91,3 +91,12 @@ debug-kafka-events:
 	$(KAFKA_COMPOSE) stop kafka-events
 	$(KAFKA_COMPOSE) run --rm --service-ports kafka-events sh -c "cd /src && $(DLV) ./cmd/kafka-events"
 	$(KAFKA_COMPOSE) start kafka-events
+
+up-rabbitmq: copy-env
+	$(COMPOSE) --profile rabbitmq up -d rabbitmq rabbitmq-consumer
+
+logs-rabbitmq-consumer:
+	$(COMPOSE) --profile rabbitmq logs -f rabbitmq-consumer
+
+replay-dlq:
+	$(COMPOSE) --profile rabbitmq exec rabbitmq-consumer go run ./cmd/rabbitmq-consumer -replay-dead-letters $(QUEUE)
