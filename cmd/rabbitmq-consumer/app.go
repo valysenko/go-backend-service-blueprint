@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"time"
@@ -19,8 +20,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// shutdownTimeout bounds the whole stop sequence so it stays inside the grace
+// period a container runtime allows before it sends SIGKILL.
+const shutdownTimeout = 5 * time.Second
+
+// consumerRunner is the part of rabbitmq.ConsumerSet that Run needs, so the
+// shutdown deadline can be exercised with a set that refuses to stop.
+type consumerRunner interface {
+	Run(ctx context.Context) error
+}
+
 type RabbitMQApp struct {
-	consumers *rabbitmq.ConsumerSet
+	consumers consumerRunner
 	server    *fiber.App
 	port      string
 	closers   []io.Closer
@@ -66,18 +77,34 @@ func (app *RabbitMQApp) Run(ctx context.Context) (runErr error) {
 	consumerErrors := make(chan error, 1)
 	go func() { consumerErrors <- app.consumers.Run(ctx) }()
 
+	var errs []error
+	consumersStopped := false
 	select {
-	case runErr = <-serverErrors:
-		cancel()
-		runErr = errors.Join(runErr, <-consumerErrors)
-	case runErr = <-consumerErrors:
-		cancel()
+	case err := <-serverErrors:
+		errs = append(errs, err)
+	case err := <-consumerErrors:
+		errs, consumersStopped = append(errs, err), true
 	case <-ctx.Done():
-		cancel()
-		runErr = <-consumerErrors
+	}
+	cancel()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer shutdownCancel()
+
+	serverStopped := make(chan error, 1)
+	go func() { serverStopped <- app.server.ShutdownWithContext(shutdownCtx) }()
+
+	// Abandoning a consumer costs a redelivery, not a message: the broker
+	// requeues everything this process never acknowledged once it exits.
+	// Waiting for one without a deadline turns a slow shutdown into a SIGKILL.
+	if !consumersStopped {
+		select {
+		case err := <-consumerErrors:
+			errs = append(errs, err)
+		case <-shutdownCtx.Done():
+			errs = append(errs, fmt.Errorf("rabbitmq consumers did not stop within %s", shutdownTimeout))
+		}
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-	return errors.Join(runErr, app.server.ShutdownWithContext(shutdownCtx))
+	return errors.Join(append(errs, <-serverStopped)...)
 }

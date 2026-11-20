@@ -34,5 +34,7 @@ deps:
     mayDependOn: [ domain, app, presentation ]
   shared:
     mayDependOn: [ shared ]
+  testutils:
+    mayDependOn: [ shared ]
   entrypoint:
     mayDependOn: [ domain, app, infrastructure, presentation, config, docs, entrypoint ]
